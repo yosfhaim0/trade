@@ -1,16 +1,12 @@
-from ib_insync import IB
 from price import batch_filter_stocks_by_price_volume
-from iv import get_multiple_iv_ibkr
+from iv import get_multiple_iv_yahoo
 from stochastic import get_stochastic_signals
 from support_resistance import get_support_resistance
-from ib_insync import IB
 import pandas as pd
-ib = IB()
-ib.connect('127.0.0.1', 7497, clientId=2)
 
 
 
-def get_filtered_stocks(tickers, ib: IB, price_min=20, price_max=800):
+def get_filtered_stocks(tickers, price_min=20, price_max=800):
     print(f"\n🔍 Start filtering {len(tickers)} tickers...")
 
     # שלב 1: מחיר
@@ -22,7 +18,7 @@ def get_filtered_stocks(tickers, ib: IB, price_min=20, price_max=800):
 
     # שלב 2: IV
     print("\n📊 Step 2: Fetching Implied Volatility (IV)...")
-    iv_data = get_multiple_iv_ibkr(list(price_filtered.keys()), ib)
+    iv_data = get_multiple_iv_yahoo(list(price_filtered.keys()), 0.1)
     iv_results = {}
     for t in price_filtered:
         iv = iv_data.get(t)
@@ -94,6 +90,5 @@ if __name__ == "__main__":
                       'CVX', 'XOM', 'COP', 'SLB', 'F', 'GM', 'GE', 'CAT', 'DE', 'MMM',
                       'UNH', 'PFE', 'JNJ', 'MRK', 'ABT', 'TMO', 'LLY', 'CVS', 'BMY', 'AMGN']
     l=['AAPL', 'TSLA', 'MSFT', 'GOOG', 'AMD', 'NVDA', 'INTC']
-    final = get_filtered_stocks(fifthi_tickers,ib)
+    final = get_filtered_stocks(fifthi_tickers)
     print("\n📈 Final selected tickers:", final)
-    ib.disconnect()

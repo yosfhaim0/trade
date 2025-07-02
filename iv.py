@@ -1,10 +1,12 @@
-from ib_insync import *
 from typing import List, Dict
+from datetime import datetime
 import time
+import yfinance as yf
+from py_vollib.black_scholes.implied_volatility import implied_volatility
 
-def get_multiple_iv_ibkr(tickers: List[str], ib: IB, delay_between=1.5) -> Dict[str, float]:
+def get_multiple_iv_yahoo(tickers: List[str], delay_between=1.5) -> Dict[str, float]:
     """
-    Compute implied volatility (IV) for multiple tickers using IBKR.
+    Compute implied volatility (IV) for multiple tickers using Yahoo Finance.
 
     Returns a dictionary: { "AAPL": 0.3251, "TSLA": 0.4123, ... }
     """
@@ -13,44 +15,51 @@ def get_multiple_iv_ibkr(tickers: List[str], ib: IB, delay_between=1.5) -> Dict[
     for ticker in tickers:
         try:
             print(f"🔍 Processing {ticker}...")
-            stock = Stock(ticker, 'SMART', 'USD')
-            ib.qualifyContracts(stock)
-
-            price_data = ib.reqMktData(stock, '', False, False)
-            ib.sleep(1.5)
-            price = float(price_data.last or price_data.close)
-            ib.cancelMktData(stock)
-
-            chains = ib.reqSecDefOptParams(stock.symbol, '', stock.secType, stock.conId)
-            chain = next((c for c in chains if c.strikes), None)
-            if not chain:
-                print(f"⚠️ No option chains with strikes for {ticker}")
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period="1d")
+            if hist.empty:
+                print(f"⚠️ No historical price data for {ticker}")
                 continue
 
-            strikes = [s for s in chain.strikes if abs(s - price) < 10]
-            if not strikes:
-                print(f"⚠️ No nearby strikes for {ticker}")
+            price = hist["Close"].iloc[-1]
+
+            options_dates = stock.options
+            if not options_dates:
+                print(f"⚠️ No options data for {ticker}")
                 continue
 
-            nearest_strike = sorted(strikes, key=lambda s: abs(s - price))[0]
-            expiry = sorted(chain.expirations)[0]
+            expiry = options_dates[0]
+            opt_chain = stock.option_chain(expiry)
+            calls = opt_chain.calls
+            calls = calls.dropna(subset=["bid", "ask", "strike"])
 
-            option = Option(ticker, expiry, nearest_strike, 'C', 'SMART')
-            ib.qualifyContracts(option)
+            # Filter to get the nearest strike
+            calls['diff'] = abs(calls['strike'] - price)
+            nearest = calls.sort_values('diff').iloc[0]
 
-            option_data = ib.reqMktData(option, '', False, False)
+            strike = nearest['strike']
+            bid = nearest['bid']
+            ask = nearest['ask']
+            mid = (bid + ask) / 2
 
-            for _ in range(5):
-                ib.sleep(1)
-                if option_data.modelGreeks and option_data.modelGreeks.impliedVol:
-                    break
+            if mid <= 0:
+                print(f"⚠️ Invalid mid price for {ticker}")
+                continue
 
-            ib.cancelMktData(option)
-            iv = option_data.modelGreeks.impliedVol if option_data.modelGreeks else None
-            if iv:
-                results[ticker] = round(iv, 4)
-            else:
-                print(f"⚠️ No IV found for {ticker}")
+            t = (datetime.strptime(expiry, "%Y-%m-%d") - datetime.utcnow()).days / 365.0
+            if t <= 0:
+                print(f"⚠️ Expiry already passed for {ticker}")
+                continue
+
+            iv = implied_volatility(
+                price=mid,
+                S=price,
+                K=strike,
+                t=t,
+                r=0.01,  # risk-free rate assumption
+                flag='c'
+            )
+            results[ticker] = round(iv, 4)
 
         except Exception as e:
             print(f"❌ Error with {ticker}: {e}")
@@ -58,14 +67,11 @@ def get_multiple_iv_ibkr(tickers: List[str], ib: IB, delay_between=1.5) -> Dict[
             time.sleep(delay_between)
 
     return results
-if __name__ == '__main__':
-    ib = IB()
-    ib.connect('127.0.0.1', 7497, clientId=2)
 
+
+if __name__ == '__main__':
     tickers = ['AAPL', 'TSLA', 'MSFT', 'GOOG', 'AMD', 'NVDA', 'INTC']
-    iv_results = get_multiple_iv_ibkr(tickers, ib)
-    print("\n📈 Implied Volatility:")
+    iv_results = get_multiple_iv_yahoo(tickers)
+    print("\n📈 Implied Volatility (Yahoo Finance):")
     for t, iv in iv_results.items():
         print(f"{t}: IV = {iv}")
-
-    ib.disconnect()
