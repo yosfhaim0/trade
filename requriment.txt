@@ -1,4 +1,0 @@
-py_vollib
-yfinance
-pymongo
-pandas_ta
