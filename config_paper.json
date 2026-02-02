@@ -1,5 +1,13 @@
 {
-    "api_key": "wQxlXJMpYsfmUh8w3GcYSoWRb3Iv43BLfxHbWPStSe5RPOfOyomw0DY8xRp2676N",
-    "api_secret": "NpzadNM515mkBLUj70nrXyngIDTP5uSbmkiRh0zuZyRes2Iv6lJyW1NIROeheRn9"
-  }
+  "api_key": "wQxlXJMpYsfmUh8w3GcYSoWRb3Iv43BLfxHbWPStSe5RPOfOyomw0DY8xRp2676N",
+  "api_secret": "NpzadNM515mkBLUj70nrXyngIDTP5uSbmkiRh0zuZyRes2Iv6lJyW1NIROeheRn9",
+  "sandbox": true,
+  "symbol": "BTC/USDT",
+  "timeframe": "1d",
+  "short_ema": 5,
+  "long_ema": 20,
+  "risk_fraction": 0.1,
+  "poll_interval_seconds": 3600,
+  "reports_dir": "reports"
+}
  
